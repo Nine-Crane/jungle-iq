@@ -226,25 +226,26 @@ for (const rel of FILES) {
 console.log('      共提交', uploaded, '个文件');
 
 /* ---------- 步骤 4：开启 GitHub Pages ---------- */
+// 先 GET 查询再决定，不要直接 PATCH：
+// 对已经配置好的 Pages 发 PATCH，GitHub 会返回 404 Not Found，
+// 于是每次重发都会打出一条"配置返回 404"的误导性警告——站点其实是好的。
 console.log('[4/5] 配置 GitHub Pages…');
-const pages = await api('PATCH', repoPath + '/pages', {
-  source: { branch: BRANCH, path: '/', mode: 'legacy' },
-  build_type: 'legacy'
-});
-if (pages.status === 200 || pages.status === 201 || pages.status === 204) {
-  console.log('      Pages 已启用:', (pages.body && pages.body.url) || '(配置成功)');
-} else if (pages.status === 409) {
-  console.log('      Pages 已存在，跳过配置');
-} else {
+const current = await api('GET', repoPath + '/pages');
+if (current.status === 200) {
+  console.log('      Pages 已启用:', (current.body && current.body.url) || '(已配置)');
+} else if (current.status === 404) {
   const post = await api('POST', repoPath + '/pages', {
     source: { branch: BRANCH, path: '/' }
   });
   if (post.status === 201 || post.status === 200) {
-    console.log('      Pages 已创建');
+    console.log('      Pages 已创建:', (post.body && post.body.url) || '(配置成功)');
   } else {
-    console.log('      ⚠ Pages 配置返回 ' + pages.status + '：' + (pages.body && pages.body.message));
-    console.log('        可稍后在仓库 Settings → Pages 手动选择 main/(root)');
+    console.log('      ⚠ Pages 创建返回 ' + post.status + '：' + (post.body && post.body.message));
+    console.log('        可稍后在仓库 Settings → Pages 手动选择 ' + BRANCH + '/(root)');
   }
+} else {
+  console.log('      ⚠ 查询 Pages 配置返回 ' + current.status + '：' + (current.body && current.body.message));
+  console.log('        可稍后在仓库 Settings → Pages 手动选择 ' + BRANCH + '/(root)');
 }
 
 /* ---------- 步骤 5：等待并验证线上可访问 ---------- */
