@@ -1,0 +1,13 @@
+# 本地凭据与临时文件 —— 绝不提交
+_token.txt
+_token.err
+_ghcred*.ps1
+_gettoken.ps1
+*.log
+
+# 操作系统 / 编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
