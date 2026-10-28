@@ -176,6 +176,15 @@ node tools/publish.mjs
 
 Token 从环境变量 `GH_TOKEN` 读，或放在工作区的 `_token.txt`（已在 `.gitignore` 中排除）。
 
+> **如果报 `UNABLE_TO_VERIFY_LEAF_SIGNATURE`**：说明本机装了 Node 默认不信任的根证书
+> （公司网络 / 代理 / 杀毒软件都常见）。用系统证书库重跑即可：
+>
+> ```bash
+> node --use-system-ca tools/publish.mjs
+> ```
+>
+> 脚本开头有预检，遇到这个情况会直接提示，不会只丢一堆堆栈给你。
+
 ## 目录结构
 
 ```
