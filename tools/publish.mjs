@@ -4,6 +4,10 @@
 // 为什么不用 git：这台机器上没有装 git / gh。
 // GitHub 的 Contents API 可以直接提交文件，效果与 push 等价。
 //
+// 注：若本机 TLS 证书链校验失败，请用系统证书库运行：
+//     node --use-system-ca tools/publish.mjs
+// （脚本开头有预检，会自动提示这一点）
+//
 // Token 来源（按优先级）：
 //   1) 环境变量 GH_TOKEN
 //   2) 工作区里的 _token.txt（仅本地使用，绝不要提交进仓库）
@@ -89,6 +93,31 @@ if (!/^[A-Za-z0-9_.\-]+$/.test(TOKEN)) {
   throw new Error('token 清洗后仍含非法字符，长度=' + TOKEN.length);
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- TLS 预检 ---------- */
+// 有些机器（公司网络 / 代理 / 装了自签根证书的杀软）装了 Node 默认不信任的根证书，
+// 现象是后面所有请求都以 UNABLE_TO_VERIFY_LEAF_SIGNATURE 失败、只丢一堆堆栈。
+// 这里提前检出来，直接告诉用户该怎么跑。
+try {
+  await new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com', path: '/', method: 'HEAD',
+      headers: { 'User-Agent': 'jungle-iq-publish' }
+    }, res => { res.resume(); resolve(); });
+    req.on('error', reject);
+    req.setTimeout(15000, () => { req.destroy(new Error('timeout')); });
+    req.end();
+  });
+} catch (e) {
+  if (/UNABLE_TO_VERIFY_LEAF_SIGNATURE|unable to verify|self.signed|SELF_SIGNED/i.test(e.message)) {
+    console.error('\n[预检失败] 无法验证 TLS 证书链。');
+    console.error('本机很可能装了 Node 默认不信任的根证书（公司网络 / 代理 / 杀毒软件都可能）。');
+    console.error('解决办法是用系统证书库重跑：');
+    console.error('\n    node --use-system-ca tools/publish.mjs\n');
+    process.exit(1);
+  }
+  // 其它网络问题留给后面的正式请求去报，这里不拦
+}
 
 /* ---------- HTTP ---------- */
 function api(method, path, body) {
